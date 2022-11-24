@@ -13,20 +13,48 @@ app.use(cors())
 app.use(express.json())
 
 
-const uri = " mongodb://localhost:27017"
-// const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_USERNAME}@cluster0.hlyc9ph.mongodb.net/?retryWrites=true&w=majority`;
+// const uri = " mongodb://localhost:27017"
+const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_USERNAME}@cluster0.hlyc9ph.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
 async function run() {
     try {
 
         const catagoryCollections = client.db('Book-House').collection('Catagorys')
+        const booksCollections = client.db('Book-House').collection('books')
+        const userCollections = client.db('Book-House').collection('users')
 
         app.get('/catagorys', async (req, res) => {
             const query = {}
-            const result = await catagoryCollections.find(query)
+            const result = await catagoryCollections.find(query).toArray()
             res.send(result)
         })
+
+        app.get('/catagory/:id', async (req, res) => {
+            const name = req.params.id
+            const query = { catagory: name }
+            const result = await booksCollections.find(query).toArray()
+            res.send(result)
+        })
+
+        app.post('/users', async (req, res) => {
+            const user = req.body 
+            const email = req.body.email
+            const query = { email: email }  
+            const newUser = await userCollections.find(query).toArray()
+
+            if (newUser.length > 0) { 
+                console.log('data')
+                return res.send('This user is allready created')
+            }
+            
+            else {
+                const result = await userCollections.insertOne(user)
+                res.send(result)
+            }
+        })
+
+
 
     }
     finally {
