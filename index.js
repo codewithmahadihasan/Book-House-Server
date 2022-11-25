@@ -24,6 +24,24 @@ async function run() {
         const booksCollections = client.db('Book-House').collection('books')
         const userCollections = client.db('Book-House').collection('users')
 
+
+
+        const verifyAdmin = async (req, res, next) => {
+            const decodedEmail = req.decoded.email
+            const query = { email: decodedEmail }
+            const user = await userCollection.findOne(query)
+            if (user?.role !== 'Admin') {
+                return res.status(403).send({ message: 'You are not a admin' })
+            }
+            next()
+
+        }
+
+
+
+
+
+
         app.get('/catagorys', async (req, res) => {
             const query = {}
             const result = await catagoryCollections.find(query).toArray()
@@ -38,21 +56,42 @@ async function run() {
         })
 
         app.post('/users', async (req, res) => {
-            const user = req.body 
+            const user = req.body
             const email = req.body.email
-            const query = { email: email }  
+            const query = { email: email }
             const newUser = await userCollections.find(query).toArray()
 
-            if (newUser.length > 0) { 
+            if (newUser.length > 0) {
                 console.log('data')
                 return res.send('This user is allready created')
             }
-            
+
             else {
                 const result = await userCollections.insertOne(user)
                 res.send(result)
             }
         })
+
+        app.get('/user/admin/:email', async (req, res) => {
+            const email = req.params.email
+            const query = { email }
+            const user = await userCollections.findOne(query)
+            res.send({ isAdmin: user?.role === 'Admin' })
+        })
+
+        app.get('/user/seller/:email', async (req, res) => {
+            const email = req.params.email
+            const query = { email }
+            const user = await userCollections.findOne(query)
+            res.send({ isSeller: user?.role === 'Seller' })
+        })
+
+        app.get('/users', async (req, res) => {
+            const query = {}
+            const result = await userCollections.find(query).toArray()
+            res.send(result)
+        })
+
 
 
 
