@@ -99,7 +99,11 @@ async function run() {
             res.send(user)
         })
 
-
+        app.post('/catagorys', async (req, res) => {
+            const body = req.body
+            const result = await booksCollections.insertOne(body)
+            res.send(result)
+        })
 
 
     }
