@@ -23,6 +23,7 @@ async function run() {
         const catagoryCollections = client.db('Book-House').collection('Catagorys')
         const booksCollections = client.db('Book-House').collection('books')
         const userCollections = client.db('Book-House').collection('users')
+        const orderCollections = client.db('Book-House').collection('order')
 
 
 
@@ -102,6 +103,32 @@ async function run() {
         app.post('/catagorys', async (req, res) => {
             const body = req.body
             const result = await booksCollections.insertOne(body)
+            res.send(result)
+        })
+
+        app.post('/order', async (req, res) => {
+            const body = req.body
+            const result = await orderCollections.insertOne(body)
+            res.send(result)
+        })
+
+        app.get('/order-buyer', async (req, res) => {
+            const email = req.query
+            const result = await orderCollections.find(email).toArray()
+            res.send(result)
+        })
+
+        app.get('/order-seller', async (req, res) => {
+            const email = req.query
+            console.log(email);
+            const result = await booksCollections.find(email).toArray()
+            res.send(result)
+        })
+
+        app.delete('/buyer/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: ObjectId(id) }
+            const result = await userCollections.deleteOne(query)
             res.send(result)
         })
 
