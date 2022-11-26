@@ -1,9 +1,11 @@
 const express = require('express');
 const cors = require('cors');
 const port = process.env.PORT || 5000
+const jwt = require('jsonwebtoken')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const { query } = require('express');
 require('dotenv').config()
+
 
 
 const app = express()
@@ -17,6 +19,31 @@ app.use(express.json())
 const uri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_USERNAME}@cluster0.hlyc9ph.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+
+
+
+function verifyJWT(req, res, next) {
+
+    const headers = req.headers.auth
+    if (!headers) {
+        return res.status(401).send('you are not a valid user')
+    }
+
+    const token = headers.split(' ')[1]
+    jwt.verify(token, process.env.TOKEN_PIN, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Please login again' })
+        }
+        req.decoded = decoded
+        next()
+    });
+
+
+}
+
+
+
+
 async function run() {
     try {
 
@@ -27,16 +54,20 @@ async function run() {
 
 
 
-        const verifyAdmin = async (req, res, next) => {
-            const decodedEmail = req.decoded.email
-            const query = { email: decodedEmail }
-            const user = await userCollection.findOne(query)
-            if (user?.role !== 'Admin') {
-                return res.status(403).send({ message: 'You are not a admin' })
-            }
-            next()
+      
 
-        }
+        app.get('/jwt', async (req, res) => {
+            const email = req.query.email
+
+            const query = { email: email }
+            const user = await userCollections.findOne(query)
+
+            if (user) {
+                const token = jwt.sign({ email }, process.env.TOKEN_PIN, { expiresIn: '1d' })
+                return res.send({ accessToken: token })
+            }
+            res.status(401).send({ message: 'Unauthorize' })
+        })
 
 
 
@@ -73,14 +104,14 @@ async function run() {
             }
         })
 
-        app.get('/user/admin/:email', async (req, res) => {
+        app.get('/user/admin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email
             const query = { email }
             const user = await userCollections.findOne(query)
             res.send({ isAdmin: user?.role === 'Admin' })
         })
 
-        app.get('/user/seller/:email', async (req, res) => {
+        app.get('/user/seller/:email', verifyJWT, async (req, res) => {
             const email = req.params.email
             const query = { email }
             const user = await userCollections.findOne(query)
@@ -88,13 +119,13 @@ async function run() {
         })
 
 
-        app.get('/seller', async (req, res) => {
+        app.get('/seller', verifyJWT, verifyAdmin, async (req, res) => {
             const role = req.query
             const user = await userCollections.find(role).toArray()
             res.send(user)
         })
 
-        app.get('/buyer', async (req, res) => {
+        app.get('/buyer', verifyJWT, async (req, res) => {
             const role = req.query
             const user = await userCollections.find(role).toArray()
             res.send(user)
@@ -112,20 +143,20 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/order-buyer', async (req, res) => {
+        app.get('/order-buyer', verifyJWT, async (req, res) => {
             const email = req.query
             const result = await orderCollections.find(email).toArray()
             res.send(result)
         })
 
-        app.get('/order-seller', async (req, res) => {
+        app.get('/order-seller', verifyJWT, async (req, res) => {
             const email = req.query
             console.log(email);
             const result = await booksCollections.find(email).toArray()
             res.send(result)
         })
 
-        app.delete('/buyer/:id', async (req, res) => {
+        app.delete('/buyer/:id', verifyJWT, async (req, res) => {
             const id = req.params.id
             const query = { _id: ObjectId(id) }
             const result = await userCollections.deleteOne(query)
