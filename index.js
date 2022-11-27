@@ -6,6 +6,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const { query } = require('express');
 require('dotenv').config()
 
+const stripe = require('stripe')(process.env.KEY)
 
 
 const app = express()
@@ -51,10 +52,31 @@ async function run() {
         const booksCollections = client.db('Book-House').collection('books')
         const userCollections = client.db('Book-House').collection('users')
         const orderCollections = client.db('Book-House').collection('order')
+        const paymentCollections = client.db('Book-House').collection('payment')
 
 
+        // const verifyAdmin = async (req, res, next) => {
+        //     const decodedEmail = req.decoded.email
+        //     const query = { email: decodedEmail }
+        //     const user = await userCollections.findOne(query)
+        //     if (user?.role !== 'Admin') {
+        //         return res.status(403).send({ message: 'You are not a admin' })
+        //     }
+        //     next()
+        // }
 
-      
+        // const verifySeller = async (req, res, next) => {
+        //     const decodedEmail = req.decoded.email
+        //     const query = { email: decodedEmail }
+        //     const user = await userCollections.findOne(query)
+        //     if (user?.role !== 'Seller') {
+        //         return res.status(403).send({ message: 'You are not a admin' })
+        //     }
+        //     next()
+
+        // }
+
+
 
         app.get('/jwt', async (req, res) => {
             const email = req.query.email
@@ -68,6 +90,8 @@ async function run() {
             }
             res.status(401).send({ message: 'Unauthorize' })
         })
+
+
 
 
 
@@ -94,7 +118,7 @@ async function run() {
             const newUser = await userCollections.find(query).toArray()
 
             if (newUser.length > 0) {
-                console.log('data')
+
                 return res.send('This user is allready created')
             }
 
@@ -104,14 +128,23 @@ async function run() {
             }
         })
 
-        app.get('/user/admin/:email', verifyJWT, async (req, res) => {
+        app.get('/user/:id', async (req, res) => {
+            const id = req.params.id
+            const email = { email: id }
+
+            const result = await userCollections.findOne(email)
+
+            res.send(result)
+        })
+
+        app.get('/user/admin/:email', async (req, res) => {
             const email = req.params.email
             const query = { email }
             const user = await userCollections.findOne(query)
             res.send({ isAdmin: user?.role === 'Admin' })
         })
 
-        app.get('/user/seller/:email', verifyJWT, async (req, res) => {
+        app.get('/user/seller/:email', async (req, res) => {
             const email = req.params.email
             const query = { email }
             const user = await userCollections.findOne(query)
@@ -119,13 +152,13 @@ async function run() {
         })
 
 
-        app.get('/seller', verifyJWT, verifyAdmin, async (req, res) => {
+        app.get('/seller', async (req, res) => {
             const role = req.query
             const user = await userCollections.find(role).toArray()
             res.send(user)
         })
 
-        app.get('/buyer', verifyJWT, async (req, res) => {
+        app.get('/buyer', async (req, res) => {
             const role = req.query
             const user = await userCollections.find(role).toArray()
             res.send(user)
@@ -143,15 +176,15 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/order-buyer', verifyJWT, async (req, res) => {
+        app.get('/order-buyer', async (req, res) => {
             const email = req.query
             const result = await orderCollections.find(email).toArray()
             res.send(result)
         })
 
-        app.get('/order-seller', verifyJWT, async (req, res) => {
+        app.get('/order-seller', async (req, res) => {
             const email = req.query
-            console.log(email);
+
             const result = await booksCollections.find(email).toArray()
             res.send(result)
         })
@@ -162,6 +195,115 @@ async function run() {
             const result = await userCollections.deleteOne(query)
             res.send(result)
         })
+
+        app.delete('/product/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id
+            const query = { _id: ObjectId(id) }
+            const result = await booksCollections.deleteOne(query)
+            res.send(result)
+        })
+
+        app.get('/my-buyer', async (req, res) => {
+            const email = req.query
+            const result = await orderCollections.find(email).toArray()
+            res.send(result)
+        })
+
+        app.delete('/my-buyer/:id', async (req, res) => {
+            const id = req.params.id
+
+            const query = { _id: ObjectId(id) }
+            const result = await orderCollections.deleteOne(query)
+
+            res.send(result)
+        })
+
+        app.get('/books', async (req, res) => {
+            const query = {}
+            const result = await booksCollections.find(query).toArray()
+            res.send(result)
+        })
+
+        app.put('/products/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: ObjectId(id) }
+            const option = { upsert: true }
+            const updatedDoc = {
+                $set: {
+                    add: 'true'
+                }
+            }
+            const result = await booksCollections.updateOne(query, updatedDoc, option)
+            res.send(result)
+
+        })
+
+        app.put('/user/:id', async (req, res) => {
+            const id = req.params.id
+            console.log(id)
+            const query = { email: id }
+            console.log(query);
+            const option = { upsert: true }
+            const updatedDoc = {
+                $set: {
+                    verify: 'true'
+                }
+            }
+            const result = await userCollections.updateOne(query, updatedDoc, option)
+            const result2 = await booksCollections.updateMany(query, updatedDoc, option)
+
+            res.send(result)
+
+        })
+
+
+
+        app.get('/order/:id', async (req, res) => {
+            const id = req.params.id
+            console.log(id)
+            const query = { _id: ObjectId(id) }
+            const result = await orderCollections.findOne(query)
+            res.send(result)
+        })
+
+
+        app.post("/create-payment-intent", async (req, res) => {
+            const orders = req.body;
+            const price = orders.price;
+            const amount = price * 100;
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                currency: "usd",
+                amount: amount,
+                payment_method_types: ["card"],
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            });
+        });
+
+        // post payment info to db
+        app.post("/payments", async (req, res) => {
+            const payment = req.body;
+            const result = await paymentCollections.insertOne(payment);
+            const id = payment.orderId;
+            const filter = { _id: ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    paid: true,
+                    transactionId: payment.transactionId,
+                },
+            };
+            const updatedResult = await orderCollections.updateOne(
+                filter,
+                updatedDoc
+            );
+            res.send(result);
+        });
+
+
+
 
 
     }
