@@ -303,6 +303,33 @@ async function run() {
         });
 
 
+        app.put('/books/', async (req, res) => {
+            const id = req.query
+
+            const option = { upsert: true }
+            const updatedDoc = {
+                $set: {
+                    paid: 'true'
+                }
+            }
+            const result = await booksCollections.updateOne(id, updatedDoc, option)
+            console.log(result)
+            res.send(result)
+        })
+
+        app.put('/report/:id', async (req, res) => {
+            const id = req.params.id
+            console.log(id);
+            const query = { _id: ObjectId(id) }
+            const option = { upsert: true }
+            const updatedDoc = {
+                $set: {
+                    report: 'report'
+                }
+            }
+            const result = await booksCollections.updateOne(query, updatedDoc, option)
+            res.send(result)
+        })
 
 
 
