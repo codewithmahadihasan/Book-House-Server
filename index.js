@@ -303,7 +303,7 @@ async function run() {
         });
 
 
-        app.put('/books/', async (req, res) => {
+        app.put('/books', async (req, res) => {
             const id = req.query
 
             const option = { upsert: true }
@@ -328,6 +328,12 @@ async function run() {
                 }
             }
             const result = await booksCollections.updateOne(query, updatedDoc, option)
+            res.send(result)
+        })
+
+        app.get('/report', async (req, res) => {
+            const id = req.query
+            const result = await booksCollections.find(id).toArray()
             res.send(result)
         })
 
